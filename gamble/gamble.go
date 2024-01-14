@@ -9,7 +9,7 @@ import (
 func GambleHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	args := util.ParseLine(s, m)[1:]
 
-	cmd := lib.Command(args[1])
+	cmd := lib.Command(args[0])
 	switch cmd {
 	case lib.CommandGambleBet:
 		return

@@ -42,3 +42,8 @@ func TestParseScheduleCommand(t *testing.T) {
 		t.Fatalf("Number of attendees did not match expected")
 	}
 }
+
+func TestParser(t *testing.T) {
+	parsed, _ := util.ParseCommandLine("!gamble flip")
+	fmt.Println(parsed)
+}

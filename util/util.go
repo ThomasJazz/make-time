@@ -11,7 +11,7 @@ import (
 )
 
 func ParseLine(s *discordgo.Session, m *discordgo.MessageCreate) (args []string) {
-	args, err := parseCommandLine(m.Content)
+	args, err := ParseCommandLine(m.Content)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, "Failed to parse command string")
 		panic("Could not parse command string")
@@ -21,7 +21,7 @@ func ParseLine(s *discordgo.Session, m *discordgo.MessageCreate) (args []string)
 }
 
 // https://stackoverflow.com/questions/34118732/parse-a-command-line-string-into-flags-and-arguments-in-golang
-func parseCommandLine(command string) ([]string, error) {
+func ParseCommandLine(command string) ([]string, error) {
 	var args []string
 	state := "start"
 	current := ""
