@@ -60,9 +60,7 @@ func HandleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	fmt.Printf("Message: %s\n", m.Content)
-	command := lib.CommandGroup(strings.TrimPrefix(m.Content, lib.CmdPrefix))
-	fmt.Printf("Command: %s", command)
+	command := lib.CommandGroup(strings.Split(strings.TrimPrefix(m.Content, lib.CmdPrefix), " ")[0])
 
 	// Check the message content and respond accordingly
 	switch command {
