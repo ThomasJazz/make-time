@@ -21,6 +21,9 @@ func main() {
 		return
 	}
 
+	// Declare intent
+	dg.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
+
 	// Open a websocket connection to Discord
 	err = dg.Open()
 	if err != nil {
