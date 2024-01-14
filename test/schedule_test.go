@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/thomasjazz/make-time/gamble"
 	"github.com/thomasjazz/make-time/lib"
 	"github.com/thomasjazz/make-time/schedule"
 	"github.com/thomasjazz/make-time/util"
@@ -46,4 +47,6 @@ func TestParseScheduleCommand(t *testing.T) {
 func TestParser(t *testing.T) {
 	parsed, _ := util.ParseCommandLine("!gamble flip")
 	fmt.Println(parsed)
+
+	fmt.Println(gamble.CoinToss())
 }
