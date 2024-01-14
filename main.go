@@ -47,7 +47,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	fmt.Println(m.Author.ID, m.Content)
+	fmt.Printf("Message: %s\n", m.Content)
 
 	// Check the message content and respond accordingly
 	switch m.Content {
