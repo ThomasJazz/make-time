@@ -1,16 +1,22 @@
-package test
+package main
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/thomasjazz/make-time/commands"
+	"github.com/thomasjazz/make-time/lib"
+	"github.com/thomasjazz/make-time/schedule"
+	"github.com/thomasjazz/make-time/util"
 )
 
+func TestMikey(t *testing.T) {
+	fmt.Println(util.GetMikeyYears())
+}
 func TestParseScheduleCommand(t *testing.T) {
-	command := "!schedule @Zebrowski @Grimz --date 01-15-2024 --time 17:00"
+	command := "!schedule @Zebrowski @Grimz -t \"01-15-2024 17:00\""
 	author := "@xen0n"
-	expected := commands.ScheduledEvent{
+	expected := lib.ScheduledEvent{
 		Id:        1,
 		Organizer: author,
 		Attendees: []string{
@@ -20,6 +26,10 @@ func TestParseScheduleCommand(t *testing.T) {
 		},
 	}
 
+	args := []string{command}
+
+	fmt.Println(args)
+
 	eventDate, err := time.Parse("2006-01-02", "2024-01-15")
 	if err != nil {
 		t.Fatalf("Could not parse date string: 01-15-2024")
@@ -27,7 +37,7 @@ func TestParseScheduleCommand(t *testing.T) {
 
 	expected.Datetime = eventDate
 
-	result, err := commands.ParseScheduleCommand(author, command)
+	result, _ := schedule.ParseScheduleCommand(author, args)
 	if len(result.Attendees) == len(expected.Attendees) {
 		t.Fatalf("Number of attendees did not match expected")
 	}
