@@ -66,9 +66,9 @@ func HandleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Check the message content and respond accordingly
 	switch command {
 	// Static responses
-	case "!ping":
+	case lib.CommandPing:
 		s.ChannelMessageSend(m.ChannelID, "pong!")
-	case "!mikey":
+	case lib.CommandMikey:
 		s.ChannelMessageSend(m.ChannelID, "Mikey has been unfunny for "+util.GetMikeyYears()+" hours")
 	// Route appropriately
 	case lib.CommandSchedule:

@@ -19,6 +19,8 @@ type CommandGroup string
 const (
 	CommandSchedule CommandGroup = "schedule"
 	CommandGamble   CommandGroup = "gamble"
+	CommandPing     CommandGroup = "ping"
+	CommandMikey    CommandGroup = "mikey"
 )
 
 type Command string
