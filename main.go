@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
+	"github.com/thomasjazz/make-time/commands"
+	"github.com/thomasjazz/make-time/util"
 )
 
 func main() {
@@ -53,12 +56,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	fmt.Printf("Message: %s\n", m.Content)
 
 	// Check the message content and respond accordingly
-	switch m.Content {
-	case "!ping":
-		s.ChannelMessageSend(m.ChannelID, "pong")
-	case "!ben":
-		s.ChannelMessageSend(m.ChannelID, "Are you playing BPL??")
-	case "!scheduler_test":
-		s.ChannelMessageSend(m.ChannelID, "Waddup, BOIIIII?")
+	switch content := m.Content; {
+	case content == "!ping":
+		s.ChannelMessageSend(m.ChannelID, "pong!")
+	case strings.HasPrefix(content, util.ScheduleCommandPrefix):
+		commands.ScheduleEvent(s, m)
 	}
 }
