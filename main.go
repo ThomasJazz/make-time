@@ -69,7 +69,7 @@ func HandleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	case lib.CommandPing:
 		s.ChannelMessageSend(m.ChannelID, "pong!")
 	case lib.CommandMikey:
-		s.ChannelMessageSend(m.ChannelID, "Mikey has been unfunny for "+util.GetMikeyYears()+" hours")
+		s.ChannelMessageSend(m.ChannelID, "Mikey has been unfunny for "+util.GetMikeyYears()+" years")
 	// Route appropriately
 	case lib.CommandSchedule:
 		schedule.ScheduleHandler(s, m)
