@@ -3,6 +3,7 @@ package util
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"time"
 
@@ -90,4 +91,11 @@ func GetMikeyYears() string {
 	years := time.Since(dob).Hours() / 8760
 
 	return strconv.FormatFloat(years, 'f', -1, 64)
+}
+
+func GetRand(max int) int {
+	s1 := rand.NewSource(time.Now().UnixNano())
+	r1 := rand.New(s1)
+
+	return r1.Intn(max)
 }

@@ -13,7 +13,19 @@ func GambleHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	switch cmd {
 	case lib.CommandGambleBet:
 		return
+	case lib.CommandGambleCoinToss:
+		s.ChannelMessageSend(m.ChannelID, CoinToss())
 	case lib.CommandGambleBlackJack:
 		return
+	}
+}
+
+func CoinToss() string {
+	result := util.GetRand(2)
+
+	if result == 0 {
+		return "Heads"
+	} else {
+		return "Tails"
 	}
 }

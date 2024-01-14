@@ -36,6 +36,7 @@ const (
 	// Gambling commands
 	CommandGambleBet       Command = "bet"
 	CommandGambleBlackJack Command = "blackjack"
+	CommandGambleCoinToss  Command = "flip"
 )
 
 type Argument string
