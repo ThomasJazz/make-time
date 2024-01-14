@@ -62,6 +62,7 @@ func HandleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	fmt.Printf("Message: %s\n", m.Content)
 	command := lib.CommandGroup(strings.TrimPrefix(m.Content, lib.CmdPrefix))
+	fmt.Printf("Command: %s", command)
 
 	// Check the message content and respond accordingly
 	switch command {
@@ -75,5 +76,7 @@ func HandleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		schedule.ScheduleHandler(s, m)
 	case lib.CommandGamble:
 		gamble.GambleHandler(s, m)
+	default:
+		fmt.Printf("Did not find handler for command: %s", command)
 	}
 }
