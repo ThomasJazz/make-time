@@ -22,7 +22,7 @@ func main() {
 	}
 
 	// Declare intent
-	dg.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
+	dg.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentMessageContent
 
 	// Open a websocket connection to Discord
 	err = dg.Open()
@@ -55,10 +55,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Check the message content and respond accordingly
 	switch m.Content {
 	case "!ping":
-		s.ChannelMessage(m.ChannelID, "pong")
+		s.ChannelMessageSend(m.ChannelID, "pong")
 	case "!ben":
-		s.ChannelMessage(m.ChannelID, "Are you playing BPL??")
+		s.ChannelMessageSend(m.ChannelID, "Are you playing BPL??")
 	case "!scheduler_test":
-		s.ChannelMessage(m.ChannelID, "Waddup, BOIIIII?")
+		s.ChannelMessageSend(m.ChannelID, "Waddup, BOIIIII?")
 	}
 }
