@@ -47,6 +47,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	fmt.Println(m.Author.ID, m.Content)
+
 	// Check the message content and respond accordingly
 	switch m.Content {
 	case "!ping":
