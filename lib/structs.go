@@ -45,3 +45,7 @@ const (
 	// Arguments
 	ArgTime Argument = "-t"
 )
+
+const (
+	MikeyBday = "1995-09-14"
+)

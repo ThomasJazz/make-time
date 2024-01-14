@@ -67,6 +67,7 @@ func HandleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Static responses
 	case lib.CommandPing:
 		s.ChannelMessageSend(m.ChannelID, "pong!")
+		return
 	case lib.CommandMikey:
 		s.ChannelMessageSend(m.ChannelID, "Mikey has been unfunny for "+util.GetMikeyYears()+" years")
 	// Route appropriately

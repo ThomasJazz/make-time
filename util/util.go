@@ -3,11 +3,13 @@ package util
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"strconv"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/thomasjazz/make-time/lib"
 )
 
 func ParseLine(s *discordgo.Session, m *discordgo.MessageCreate) (args []string) {
@@ -87,8 +89,8 @@ func ParseCommandLine(command string) ([]string, error) {
 }
 
 func GetMikeyYears() string {
-	dob, _ := time.Parse("2006-01-02", "1994-09-24")
-	years := time.Since(dob).Hours() / 8760
+	dob, _ := time.Parse("2006-01-02", lib.MikeyBday)
+	years := math.Round((time.Since(dob).Hours() / 8760))
 
 	return strconv.FormatFloat(years, 'f', -1, 64)
 }
