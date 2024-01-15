@@ -1,9 +1,5 @@
 package blackjack
 
-import (
-	"github.com/thomasjazz/make-time/util"
-)
-
 type Suit string
 type Rank string
 
@@ -26,16 +22,17 @@ type Result string
 type Status string
 
 type Action struct {
-	Action util.Argument
+	Action PlayOption
 	Result Result
 	Status Status
 }
+type PlayOption string
 
 // Blackjack possible arguments
-var (
-	Bet  util.Argument = "bet"
-	Hit  util.Argument = "hit"
-	Stay util.Argument = "stay"
+const (
+	Bet   PlayOption = "bet"
+	Hit   PlayOption = "hit"
+	Stand PlayOption = "stand"
 )
 
 const (

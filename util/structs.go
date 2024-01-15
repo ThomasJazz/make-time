@@ -14,6 +14,7 @@ const (
 	CmdPrefix = "!"
 )
 
+type Function string
 type CommandGroup string
 
 type Command string

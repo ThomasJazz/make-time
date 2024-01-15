@@ -16,46 +16,98 @@ import (
 )
 
 var (
-	activeGames map[string]GameState
-	mtx         sync.Mutex
+	activeGames  map[string]GameState
+	mtx          sync.Mutex
+	sendResponse = make(chan string, 1)
+	closeChannel = make(chan struct{})
 )
 
 const dumpPath = "/data/[pid].json"
 
+func validateArgs(hasActiveGame bool, args []string) bool {
+	switch numArgs := len(args); {
+	case numArgs > 3:
+		sendResponse <- "Too many of arguments provided"
+		return false
+	case numArgs == 1:
+		sendResponse <- "usage: !blackjack [action]"
+		return false
+	}
+
+	// This will make sure "!blackhack hit stand" would fail
+	actions := 0
+
+	for i := 1; i < len(args); i++ {
+		switch val := PlayOption(args[i]); {
+		case !isValidPlayOption(string(val)):
+			sendResponse <- "Unexpected argument: " + args[i]
+			return false
+		case val == Bet:
+			if i == len(args)-1 {
+				sendResponse <- "Invalid syntax. Please use: !blackjack bet [amount]"
+				return false
+			}
+			if _, err := strconv.Atoi(args[i+1]); err != nil {
+				sendResponse <- "Bet amount must be integer value"
+				return false
+			}
+			i++ // Increment here so we don't check it on next iteration
+		case val == Hit || val == Stand:
+			if !hasActiveGame {
+				sendResponse <- "No active game found. Please use: !blackjack bet [amount]"
+				return false
+			}
+			if actions > 0 {
+				sendResponse <- "Error. Cannot perform multiple actions"
+				return false
+			}
+			actions++
+			continue
+		}
+	}
+
+	return true
+}
+
 func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 	args := util.ParseLine(s, m)
-	if len(args) > 3 {
-		s.ChannelMessageSend(m.ChannelID, "Too many of arguments provided")
+	go sendResponseMessage(s, m)
+
+	hasActive := hasActiveGame(m.Author.ID)
+	if !validateArgs(hasActive, args) {
+		closeChannel <- struct{}{}
+		return
 	}
 
 	game := LoadOrCreateGameState(m.Author.ID)
+
 	var fullResponse strings.Builder
-	var actionResult *Action
+	var actionResult *Action = &Action{
+		Status: InProgress,
+	}
 
-	if util.Argument(args[1]) == Bet {
-		betValue, err := strconv.Atoi(args[2])
-		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, "invalid bet value")
-			return
-		}
-		// Todo validate that bet value is less than player balance
-		game.Pot += betValue
+	for i := 1; i < len(args); i++ {
+		switch PlayOption(args[i]) {
+		case Bet:
+			// Error is accounted for in arg validation
+			betValue, _ := strconv.Atoi(args[i+1])
 
-		return
-	} else {
-		action := args[1]
-		var err error
+			// Todo validate that bet value is less than player balance
+			game.Pot += betValue
 
-		actionResult, err = PlayTurn(action, &game)
-		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, "Error occurred while performing action")
-			saveGameAsJson(game)
-			return
+			i++
+		case Hit, Stand:
+			var err error
+
+			actionResult, err = PlayTurn(args[i], &game)
+			if err != nil {
+				s.ChannelMessageSend(m.ChannelID, "Error occurred while performing action")
+				return
+			}
 		}
 	}
 
 	// Add to the response as we
-	fullResponse.WriteString(formatActionResultString(*actionResult) + "\n")
 
 	if actionResult.Status != InProgress {
 		pot := endGame(game)
@@ -68,12 +120,15 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 			fullResponse.WriteString("You lost " + strconv.Itoa(pot) + " shmeckles!\n")
 		}
 	} else {
-		s.ChannelMessageSend(m.ChannelID, getPlayerTableView(game, false))
+		fmt.Println(getPlayerTableView(game, false))
+		//s.ChannelMessageSend(m.ChannelID, getPlayerTableView(game, false))
 	}
+
+	closeChannel <- struct{}{}
 }
 
 func PlayTurn(actionStr string, game *GameState) (*Action, error) {
-	action := util.Argument(actionStr)
+	action := PlayOption(actionStr)
 	actionResult := Action{
 		Action: action,
 	}
@@ -95,11 +150,11 @@ func PlayTurn(actionStr string, game *GameState) (*Action, error) {
 			actionResult.Result = PlayerBust
 			actionResult.Status = DealerWin
 		}
-	case Stay:
+	case Stand:
 		actionResult.Result = Under
 		playerSum := getHandSum(game.PlayerHand, true)
 
-		// Do dealer actions until bust, stay, or blackjack
+		// Do dealer actions until bust, stand, or blackjack
 		for doDealerAction(game) {
 		}
 
@@ -120,25 +175,31 @@ func PlayTurn(actionStr string, game *GameState) (*Action, error) {
 	return &actionResult, nil
 }
 
-func LoadOrCreateGameState(userId string) GameState {
+func LoadOrCreateGameState(playerId string) GameState {
 	var game GameState
 
 	// Either create a new game or load an existing game
-	if _, exists := activeGames[userId]; exists {
-		newGame, err := loadGameJson(userId)
+	if hasActiveGame(playerId) {
+		newGame, err := loadGameJson(playerId)
 		if err != nil {
-			fmt.Printf("could not load game for user %v", userId)
+			fmt.Printf("could not load game for user %v", playerId)
 
 		}
 
 		copyGame(*newGame, &game)
 	} else {
-		game = SetupNewGame(userId)
-		dealToPlayer(&game)
-		dealToPlayer(&game)
-		dealToDealer(&game, true)
-		dealToDealer(&game, false)
+		game = StartGame(playerId)
 	}
+
+	return game
+}
+
+func StartGame(playerId string) GameState {
+	game := SetupNewGame(playerId)
+	dealToPlayer(&game)
+	dealToPlayer(&game)
+	dealToDealer(&game, true)
+	dealToDealer(&game, false)
 
 	return game
 }
@@ -152,9 +213,10 @@ func SetupNewGame(playerId string) GameState {
 	for _, suit := range suits {
 		for i, rank := range ranks {
 			deck = append(deck, Card{
-				Rank:   rank,
-				Suit:   suit,
-				Points: util.Min(i+1, 10),
+				Rank:    rank,
+				Suit:    suit,
+				Points:  util.Min(i+1, 10),
+				Visible: true,
 			})
 		}
 	}
@@ -167,6 +229,7 @@ func SetupNewGame(playerId string) GameState {
 		DealerHand: []Card{},
 		PlayerHand: []Card{},
 	}
+
 	return game
 }
 
@@ -220,7 +283,11 @@ func dealToPlayer(game *GameState) {
 }
 
 func dealToDealer(game *GameState, visible bool) {
-	game.DealerHand = append(game.DealerHand, game.Deck[len(game.Deck)-1])
+	// Use the visibility provided
+	card := game.Deck[len(game.Deck)-1]
+	card.Visible = visible
+
+	game.DealerHand = append(game.DealerHand, card)
 	game.Deck = game.Deck[:len(game.Deck)-1]
 }
 
@@ -313,4 +380,23 @@ func getPlayerTableView(game GameState, showHidden bool) string {
 	board.WriteString("\n\tSum: " + strconv.Itoa(playerSum))
 
 	return board.String()
+}
+
+func isValidPlayOption(option string) bool {
+	switch PlayOption(option) {
+	case Bet, Hit, Stand:
+		return true
+	}
+	return false
+}
+
+func sendResponseMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
+	for loop := true; loop; {
+		select {
+		case val := <-sendResponse:
+			s.ChannelMessageSend(m.ChannelID, val)
+		case <-closeChannel:
+			loop = false
+		}
+	}
 }

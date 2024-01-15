@@ -1,4 +1,4 @@
-package main
+package schedule
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/thomasjazz/make-time/gamble"
-	"github.com/thomasjazz/make-time/schedule"
 	"github.com/thomasjazz/make-time/util"
 )
 
@@ -37,7 +36,7 @@ func TestParseScheduleCommand(t *testing.T) {
 
 	expected.Datetime = eventDate
 
-	result, _ := schedule.ParseScheduleCommand(author, args)
+	result, _ := ParseScheduleCommand(author, args)
 	if len(result.Attendees) == len(expected.Attendees) {
 		t.Fatalf("Number of attendees did not match expected")
 	}
