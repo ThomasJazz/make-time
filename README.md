@@ -8,3 +8,7 @@ TODO
 ### !gamble
 #### !gamble flip
 - Flips a coin and returns heads or tails
+
+## TODO
+* Set up Sqlite database
+* Set up cron function to create account/increment shmeckles balance

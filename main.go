@@ -9,8 +9,8 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
+	"github.com/thomasjazz/make-time/blackjack"
 	"github.com/thomasjazz/make-time/gamble"
-	"github.com/thomasjazz/make-time/lib"
 	"github.com/thomasjazz/make-time/schedule"
 	"github.com/thomasjazz/make-time/util"
 )
@@ -39,6 +39,7 @@ func main() {
 
 	// Add message handler(s)
 	dg.AddHandler(HandleMessage)
+	//dg.AddHandler(HandleReaction)
 
 	// Wait for a CTRL-C
 	stop := make(chan os.Signal, 1)
@@ -56,25 +57,29 @@ func HandleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	// Check if its a command for us
-	if !strings.HasPrefix(m.Content, lib.CmdPrefix) {
+	if !strings.HasPrefix(m.Content, util.CmdPrefix) {
 		return
 	}
 
-	command := lib.CommandGroup(strings.Split(strings.TrimPrefix(m.Content, lib.CmdPrefix), " ")[0])
+	command := util.Command(strings.Split(strings.TrimPrefix(m.Content, util.CmdPrefix), " ")[0])
 
 	// Check the message content and respond accordingly
 	switch command {
 	// Static responses
-	case lib.CommandPing:
+	case util.CommandPing:
 		s.ChannelMessageSend(m.ChannelID, "pong!")
 		return
-	case lib.CommandMikey:
+	case util.CommandMikey:
 		s.ChannelMessageSend(m.ChannelID, "Mikey has been unfunny for "+util.GetMikeyYears()+" years")
 	// Route appropriately
-	case lib.CommandSchedule:
+	case util.CommandSchedule:
 		schedule.ScheduleHandler(s, m)
-	case lib.CommandGamble:
+	case util.CommandGamble:
 		gamble.GambleHandler(s, m)
+	case util.CommandCoinFlip:
+		gamble.GambleHandler(s, m)
+	case util.CommandBlackJack:
+		blackjack.HandleBlackJack(s, m)
 	default:
 		fmt.Printf("Did not find handler for command: %s", command)
 	}

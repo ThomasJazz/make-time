@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"os"
 	"strconv"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/thomasjazz/make-time/lib"
 )
 
 func ParseLine(s *discordgo.Session, m *discordgo.MessageCreate) (args []string) {
@@ -89,7 +89,7 @@ func ParseCommandLine(command string) ([]string, error) {
 }
 
 func GetMikeyYears() string {
-	dob, _ := time.Parse("2006-01-02", lib.MikeyBday)
+	dob, _ := time.Parse("2006-01-02", MikeyBday)
 	years := math.Round((time.Since(dob).Hours() / 8760))
 
 	return strconv.FormatFloat(years, 'f', -1, 64)
@@ -100,4 +100,24 @@ func GetRand(max int) int {
 	r1 := rand.New(s1)
 
 	return r1.Intn(max)
+}
+
+func Max(x int, y int) int {
+	if x > y {
+		return x
+	} else {
+		return y
+	}
+}
+
+func Min(x int, y int) int {
+	if x < y {
+		return x
+	} else {
+		return y
+	}
+}
+
+func PrintDir() {
+	fmt.Println(os.Getwd())
 }

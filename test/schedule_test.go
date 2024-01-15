@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/thomasjazz/make-time/gamble"
-	"github.com/thomasjazz/make-time/lib"
 	"github.com/thomasjazz/make-time/schedule"
 	"github.com/thomasjazz/make-time/util"
 )
@@ -17,7 +16,7 @@ func TestMikey(t *testing.T) {
 func TestParseScheduleCommand(t *testing.T) {
 	command := "!schedule @Zebrowski @Grimz -t \"01-15-2024 17:00\""
 	author := "@xen0n"
-	expected := lib.ScheduledEvent{
+	expected := util.ScheduledEvent{
 		Id:        1,
 		Organizer: author,
 		Attendees: []string{

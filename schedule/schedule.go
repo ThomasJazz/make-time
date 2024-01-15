@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/thomasjazz/make-time/lib"
 	"github.com/thomasjazz/make-time/util"
 )
 
@@ -19,10 +18,10 @@ func ScheduleHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	fmt.Println(event)
 }
 
-func ParseScheduleCommand(author string, args []string) (*lib.ScheduledEvent, error) {
+func ParseScheduleCommand(author string, args []string) (*util.ScheduledEvent, error) {
 	//var err error
 
-	event := lib.ScheduledEvent{
+	event := util.ScheduledEvent{
 		Id:        1,
 		Organizer: author,
 		Attendees: []string{author},

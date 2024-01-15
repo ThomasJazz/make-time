@@ -4,24 +4,20 @@ import (
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/thomasjazz/make-time/lib"
 	"github.com/thomasjazz/make-time/util"
 )
 
 func GambleHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
-	args := util.ParseLine(s, m)[1:]
-	fmt.Println(args)
-	cmd := lib.Command(args[0])
-	fmt.Println(cmd)
+	args := util.ParseLine(s, m)
+
+	cmd := util.Command(args[0])
+	fmt.Printf("Gamble command received: %s\n", cmd)
+
 	switch cmd {
-	case lib.CommandGambleBet:
-		return
-	case lib.CommandGambleCoinToss:
+	case util.CommandCoinFlip:
 		result := CoinToss()
 		fmt.Printf("Coin toss result: %s", result)
 		s.ChannelMessageSend(m.ChannelID, result)
-	case lib.CommandGambleBlackJack:
-		return
 	}
 }
 
