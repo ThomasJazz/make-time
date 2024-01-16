@@ -122,7 +122,6 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 		} else if status == Draw {
 			buildResponse <- ("Draw. Your bet will be returned\n")
 		}
-		buildResponse <- fullResponse.String()
 	} else {
 		saveGameAsJson(game)
 		buildResponse <- (getPlayerTableView(game, false) + "\nuse '!blackjack hit' for another card or '!blackjack stand' if you're " +
