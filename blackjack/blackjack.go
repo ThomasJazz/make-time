@@ -80,7 +80,6 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	game := LoadOrCreateGameState(m.Author.ID)
 
-	var fullResponse strings.Builder
 	var status Status = InProgress
 
 	// Process args and apply them to the existing game
@@ -113,15 +112,15 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if status != InProgress {
 		pot := endGame(game)
 
-		fullResponse.WriteString(getPlayerTableView(game, true) + "\n")
+		buildResponse <- (getPlayerTableView(game, true) + "\n")
 
 		if status == PlayerWin {
-			fullResponse.WriteString("You won " + strconv.Itoa(pot) + " shmeckles!\n")
+			buildResponse <- ("You won " + strconv.Itoa(pot) + " shmeckles!\n")
 			// todo: add winnings to player balance in DB
 		} else if status == DealerWin {
-			fullResponse.WriteString("You lost " + strconv.Itoa(pot) + " shmeckles!\n")
+			buildResponse <- ("You lost " + strconv.Itoa(pot) + " shmeckles!\n")
 		} else if status == Draw {
-			fullResponse.WriteString("Draw. Your bet will be returned\n")
+			buildResponse <- ("Draw. Your bet will be returned\n")
 		}
 		buildResponse <- fullResponse.String()
 	} else {
@@ -178,7 +177,6 @@ func LoadOrCreateGameState(playerId string) GameState {
 		newGame, err := loadGameJson(playerId)
 		if err != nil {
 			fmt.Printf("could not load game for user %v", playerId)
-
 		}
 
 		copyGame(*newGame, &game)
