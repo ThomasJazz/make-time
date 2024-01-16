@@ -114,15 +114,15 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// Check if game is completed
 	if game.Status != InProgress {
-		pot := endGame(game)
+		winnings := endGame(game)
 
 		buildResponse <- (getPlayerTableView(game, true) + "\n")
 
 		if game.Status == PlayerWin {
-			buildResponse <- ("You won " + strconv.Itoa(pot) + " shmeckles!\n")
+			buildResponse <- ("You won " + strconv.Itoa(winnings) + " shmeckles!\n")
 			// todo: add winnings to player balance in DB
 		} else if game.Status == DealerWin {
-			buildResponse <- ("You lost " + strconv.Itoa(pot) + " shmeckles!\n")
+			buildResponse <- ("You lost " + strconv.Itoa(game.Pot) + " shmeckles!\n")
 		} else if game.Status == Draw {
 			buildResponse <- ("Draw. Your bet will be returned\n")
 		}
