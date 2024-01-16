@@ -16,10 +16,10 @@ import (
 )
 
 var (
-	activeGames  map[string]GameState
-	mtx          sync.Mutex
-	sendResponse = make(chan string, 1)
-	closeChannel = make(chan struct{})
+	activeGames   map[string]GameState
+	mtx           sync.Mutex
+	buildResponse = make(chan string, 1)
+	sendAndClose  = make(chan struct{})
 )
 
 const dumpPath = "data/[pid].json"
@@ -27,10 +27,10 @@ const dumpPath = "data/[pid].json"
 func validateArgs(hasActiveGame bool, args []string) bool {
 	switch numArgs := len(args); {
 	case numArgs > 3:
-		sendResponse <- "Too many of arguments provided"
+		buildResponse <- "Too many of arguments provided"
 		return false
 	case numArgs == 1:
-		sendResponse <- "usage: !blackjack [action]"
+		buildResponse <- "usage: !blackjack [action]"
 		return false
 	}
 
@@ -40,25 +40,25 @@ func validateArgs(hasActiveGame bool, args []string) bool {
 	for i := 1; i < len(args); i++ {
 		switch val := PlayOption(args[i]); {
 		case !isValidPlayOption(string(val)):
-			sendResponse <- "Unexpected argument: " + args[i]
+			buildResponse <- "Unexpected argument: " + args[i]
 			return false
 		case val == Bet:
 			if i == len(args)-1 {
-				sendResponse <- "Invalid syntax. Please use: !blackjack bet [amount]"
+				buildResponse <- "Invalid syntax. Please use: !blackjack bet [amount]"
 				return false
 			}
 			if _, err := strconv.Atoi(args[i+1]); err != nil {
-				sendResponse <- "Bet amount must be integer value"
+				buildResponse <- "Bet amount must be integer value"
 				return false
 			}
 			i++ // Increment here so we don't check it on next iteration
 		case val == Hit || val == Stand:
 			if !hasActiveGame {
-				sendResponse <- "No active game found. Please use: !blackjack bet [amount]"
+				buildResponse <- "No active game found. Please use: !blackjack bet [amount]"
 				return false
 			}
 			if actions > 0 {
-				sendResponse <- "Error. Cannot perform multiple actions"
+				buildResponse <- "Error. Cannot perform multiple actions"
 				return false
 			}
 			actions++
@@ -71,11 +71,11 @@ func validateArgs(hasActiveGame bool, args []string) bool {
 
 func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 	args := util.ParseLine(s, m)
-	go sendResponseMessage(s, m)
+	go buildResponseMessage(s, m)
 
 	hasActive := hasActiveGame(m.Author.ID)
 	if !validateArgs(hasActive, args) {
-		closeChannel <- struct{}{}
+		sendAndClose <- struct{}{}
 		return
 	}
 
@@ -92,7 +92,7 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 			// Error is accounted for in arg validation
 			betValue, _ := strconv.Atoi(args[i+1])
 
-			// Todo validate that bet value is less than player balance
+			// Todo: validate that bet value is less than player balance
 			game.Pot += betValue
 
 			i++
@@ -101,18 +101,19 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 			status, err = PlayTurn(args[i], &game)
 			if err != nil {
-				s.ChannelMessageSend(m.ChannelID, "Error occurred while performing action")
+				buildResponse <- "Error occurred while performing action"
 				return
 			}
 		}
 	}
 
+	buildResponse <- "Game status: " + string(status) + "\n"
+	buildResponse <- "Pot value: " + strconv.Itoa(game.Pot) + " shmeckles\n"
+
 	// Check if game is completed
 	if status != InProgress {
-		fmt.Println(status)
-		fmt.Println(getPlayerTableView(game, true))
-
 		pot := endGame(game)
+
 		fullResponse.WriteString(getPlayerTableView(game, true) + "\n")
 
 		if status == PlayerWin {
@@ -123,14 +124,14 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 		} else if status == Draw {
 			fullResponse.WriteString("Draw. Your bet will be returned\n")
 		}
+		buildResponse <- fullResponse.String()
 	} else {
-		fmt.Println(status)
-		fmt.Println(getPlayerTableView(game, false))
 		saveGameAsJson(game)
-		//s.ChannelMessageSend(m.ChannelID, getPlayerTableView(game, false))
+		buildResponse <- (getPlayerTableView(game, false) + "\nuse '!blackjack hit' for another card or '!blackjack stand' if you're " +
+			"happy with your cards")
 	}
 
-	closeChannel <- struct{}{}
+	sendAndClose <- struct{}{}
 }
 
 func PlayTurn(actionStr string, game *GameState) (Status, error) {
@@ -151,11 +152,19 @@ func PlayTurn(actionStr string, game *GameState) (Status, error) {
 	dealerSum := getHandSum(game.DealerHand, true)
 	playerSum := getHandSum(game.PlayerHand, true)
 
-	if playerSum > 21 || (action == Stand && playerSum < dealerSum) {
+	if playerSum > 21 {
+		buildResponse <- "Player BUST!\n"
+	} else if dealerSum > 21 {
+		buildResponse <- "Dealer BUST\n"
+	}
+
+	if playerSum > 21 || (action == Stand && dealerSum <= 21 && playerSum < dealerSum) {
 		return DealerWin, nil
 	} else if action == Stand && playerSum == dealerSum {
 		return Draw, nil
-	} else if (len(game.PlayerHand) == 2 && playerSum == 21) || (action == Stand && playerSum > dealerSum) { // End of round and dealers cards are lower
+	} else if (len(game.PlayerHand) == 2 && playerSum == 21) ||
+		dealerSum > 21 ||
+		(action == Stand && playerSum > dealerSum) { // End of round and dealers cards are lower
 		return PlayerWin, nil
 	}
 
@@ -348,9 +357,10 @@ func getPlayerTableView(game GameState, showHidden bool) string {
 	board.WriteString("DEALER showing: ")
 	for _, card := range game.DealerHand {
 		if !showHidden && !card.Visible {
-			dealerCards = append(dealerCards, "Hole card")
+			dealerCards = append(dealerCards, "Hidden card(?)")
 		} else {
-			dealerCards = append(dealerCards, string(card.Rank)+" of "+string(card.Suit))
+			dealerCards = append(dealerCards, string(card.Rank)+" of "+
+				string(card.Suit)+"("+strconv.Itoa(card.Points)+")")
 		}
 	}
 	board.WriteString(strings.Join(dealerCards, ", "))
@@ -358,7 +368,8 @@ func getPlayerTableView(game GameState, showHidden bool) string {
 
 	board.WriteString("\nPLAYER showing: ")
 	for _, card := range game.PlayerHand {
-		playerCards = append(playerCards, string(card.Rank)+" of "+string(card.Suit))
+		playerCards = append(playerCards, string(card.Rank)+" of "+
+			string(card.Suit)+"("+strconv.Itoa(card.Points)+")")
 	}
 	board.WriteString(strings.Join(playerCards, ", "))
 	board.WriteString("\n\tSum: " + strconv.Itoa(playerSum))
@@ -374,12 +385,16 @@ func isValidPlayOption(option string) bool {
 	return false
 }
 
-func sendResponseMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
+func buildResponseMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
+	var fullResponse strings.Builder
+
 	for loop := true; loop; {
 		select {
-		case val := <-sendResponse:
-			s.ChannelMessageSend(m.ChannelID, val)
-		case <-closeChannel:
+		case val := <-buildResponse:
+			fullResponse.WriteString(val)
+		case <-sendAndClose:
+			fmt.Println(fullResponse.String())
+			s.ChannelMessageSend(m.ChannelID, fullResponse.String())
 			loop = false
 		}
 	}
