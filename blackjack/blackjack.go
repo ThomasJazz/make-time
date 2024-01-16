@@ -132,7 +132,7 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	fmt.Println(responseBuilder.String())
-	//s.ChannelMessageSend(m.ChannelID, responseBuilder.String())
+	s.ChannelMessageSend(m.ChannelID, responseBuilder.String())
 }
 
 func PlayTurn(actionStr string, game *GameState) (Status, error) {
