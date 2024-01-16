@@ -13,26 +13,26 @@ func TestGenerateDeck(t *testing.T) {
 	fmt.Println(getPlayerTableView(game, false))
 
 	for getHandSum(game.PlayerHand, true) < 17 {
-		var action *Action
+		var status Status
 		var err error
-		action, err = PlayTurn(string(Hit), &game)
+		status, err = PlayTurn(string(Hit), &game)
 		if err != nil {
 			fmt.Println(err)
 			t.Fail()
 		}
-		fmt.Println(action)
+		fmt.Println(status)
 	}
 
-	var action *Action
+	var status Status
 	var err error
-	action, err = PlayTurn(string(Stand), &game)
+	status, err = PlayTurn(string(Stand), &game)
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
 	}
 
 	fmt.Println(getPlayerTableView(game, true))
-	fmt.Println(action)
+	fmt.Println(status)
 
 }
 
@@ -41,9 +41,23 @@ func TestConvertConst(t *testing.T) {
 	fmt.Println(arg)
 }
 
-func TestHandleBlackJack(t *testing.T) {
+func TestHandleBlackJackNew(t *testing.T) {
 	sess, mess := test.MockDiscordMessage()
 	mess.Content = "!blackjack bet 100"
+
+	HandleBlackJack(&sess, &mess)
+}
+
+func TestHandleBlackJackLoadedHit(t *testing.T) {
+	sess, mess := test.MockDiscordMessage()
+	mess.Content = "!blackjack hit"
+
+	HandleBlackJack(&sess, &mess)
+}
+
+func TestHandleBlackJackLoadedStand(t *testing.T) {
+	sess, mess := test.MockDiscordMessage()
+	mess.Content = "!blackjack stand"
 
 	HandleBlackJack(&sess, &mess)
 }

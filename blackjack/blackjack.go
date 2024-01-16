@@ -22,7 +22,7 @@ var (
 	closeChannel = make(chan struct{})
 )
 
-const dumpPath = "/data/[pid].json"
+const dumpPath = "data/[pid].json"
 
 func validateArgs(hasActiveGame bool, args []string) bool {
 	switch numArgs := len(args); {
@@ -82,11 +82,11 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 	game := LoadOrCreateGameState(m.Author.ID)
 
 	var fullResponse strings.Builder
-	var actionResult *Action = &Action{
-		Status: InProgress,
-	}
+	var status Status = InProgress
 
+	// Process args and apply them to the existing game
 	for i := 1; i < len(args); i++ {
+		fmt.Printf("Player action: %s\n", args[i])
 		switch PlayOption(args[i]) {
 		case Bet:
 			// Error is accounted for in arg validation
@@ -99,7 +99,7 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 		case Hit, Stand:
 			var err error
 
-			actionResult, err = PlayTurn(args[i], &game)
+			status, err = PlayTurn(args[i], &game)
 			if err != nil {
 				s.ChannelMessageSend(m.ChannelID, "Error occurred while performing action")
 				return
@@ -107,72 +107,59 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}
 
-	// Add to the response as we
+	// Check if game is completed
+	if status != InProgress {
+		fmt.Println(status)
+		fmt.Println(getPlayerTableView(game, true))
 
-	if actionResult.Status != InProgress {
 		pot := endGame(game)
 		fullResponse.WriteString(getPlayerTableView(game, true) + "\n")
 
-		if actionResult.Status == PlayerWin {
+		if status == PlayerWin {
 			fullResponse.WriteString("You won " + strconv.Itoa(pot) + " shmeckles!\n")
 			// todo: add winnings to player balance in DB
-		} else {
+		} else if status == DealerWin {
 			fullResponse.WriteString("You lost " + strconv.Itoa(pot) + " shmeckles!\n")
+		} else if status == Draw {
+			fullResponse.WriteString("Draw. Your bet will be returned\n")
 		}
 	} else {
+		fmt.Println(status)
 		fmt.Println(getPlayerTableView(game, false))
+		saveGameAsJson(game)
 		//s.ChannelMessageSend(m.ChannelID, getPlayerTableView(game, false))
 	}
 
 	closeChannel <- struct{}{}
 }
 
-func PlayTurn(actionStr string, game *GameState) (*Action, error) {
+func PlayTurn(actionStr string, game *GameState) (Status, error) {
 	action := PlayOption(actionStr)
-	actionResult := Action{
-		Action: action,
-	}
 
 	switch action {
 	case Hit:
 		dealToPlayer(game)
-		handSum := getHandSum(game.PlayerHand, true)
-		dealerSum := getHandSum(game.DealerHand, true)
-		if handSum == 21 {
-			actionResult.Result = Blackjack
-
-			if dealerSum != 21 {
-				actionResult.Status = Draw
-			} else {
-				actionResult.Status = PlayerWin
-			}
-		} else if handSum > 21 {
-			actionResult.Result = PlayerBust
-			actionResult.Status = DealerWin
-		}
 	case Stand:
-		actionResult.Result = Under
-		playerSum := getHandSum(game.PlayerHand, true)
-
 		// Do dealer actions until bust, stand, or blackjack
 		for doDealerAction(game) {
 		}
-
-		dealerSum := getHandSum(game.DealerHand, true)
-
-		// Determine winner
-		if playerSum > dealerSum {
-			actionResult.Status = PlayerWin
-		} else if playerSum == dealerSum {
-			actionResult.Status = Draw
-		} else {
-			actionResult.Status = DealerWin
-		}
 	default:
-		return &actionResult, errors.New("invalid action")
+		return InProgress, errors.New("invalid action")
 	}
 
-	return &actionResult, nil
+	// Determine status to return
+	dealerSum := getHandSum(game.DealerHand, true)
+	playerSum := getHandSum(game.PlayerHand, true)
+
+	if playerSum > 21 || (action == Stand && playerSum < dealerSum) {
+		return DealerWin, nil
+	} else if action == Stand && playerSum == dealerSum {
+		return Draw, nil
+	} else if (len(game.PlayerHand) == 2 && playerSum == 21) || (action == Stand && playerSum > dealerSum) { // End of round and dealers cards are lower
+		return PlayerWin, nil
+	}
+
+	return InProgress, nil
 }
 
 func LoadOrCreateGameState(playerId string) GameState {
@@ -298,7 +285,7 @@ func saveGameAsJson(game GameState) error {
 	}
 	filepath := getFilePath(game.PlayerId)
 
-	err = os.WriteFile(filepath, jsonData, 0644)
+	err = os.WriteFile(filepath, jsonData, 0777)
 	if err != nil {
 		return err
 	}
@@ -355,28 +342,25 @@ func getPlayerTableView(game GameState, showHidden bool) string {
 	var board strings.Builder
 	dealerSum := getHandSum(game.DealerHand, showHidden)
 	playerSum := getHandSum(game.PlayerHand, true)
+	dealerCards := []string{}
+	playerCards := []string{}
 
 	board.WriteString("DEALER showing: ")
-	for i, card := range game.DealerHand {
-		if showHidden {
-			board.WriteString(string(card.Rank) + " of " + string(card.Suit))
-			if i < len(game.DealerHand)-1 {
-				board.WriteString(", ")
-			}
-		} else if card.Visible {
-			board.WriteString(string(card.Rank) + " of " + string(card.Suit) + " ")
+	for _, card := range game.DealerHand {
+		if !showHidden && !card.Visible {
+			dealerCards = append(dealerCards, "Hole card")
+		} else {
+			dealerCards = append(dealerCards, string(card.Rank)+" of "+string(card.Suit))
 		}
 	}
+	board.WriteString(strings.Join(dealerCards, ", "))
 	board.WriteString("\n\tSum: " + strconv.Itoa(dealerSum))
 
 	board.WriteString("\nPLAYER showing: ")
-	for i, card := range game.PlayerHand {
-		board.WriteString(string(card.Rank) + " of " + string(card.Suit))
-		if i < len(game.PlayerHand)-1 {
-			board.WriteString(", ")
-		}
+	for _, card := range game.PlayerHand {
+		playerCards = append(playerCards, string(card.Rank)+" of "+string(card.Suit))
 	}
-
+	board.WriteString(strings.Join(playerCards, ", "))
 	board.WriteString("\n\tSum: " + strconv.Itoa(playerSum))
 
 	return board.String()

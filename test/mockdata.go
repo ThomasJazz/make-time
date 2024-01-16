@@ -7,7 +7,7 @@ import (
 func MockDiscordMessage() (discordgo.Session, discordgo.MessageCreate) {
 	session := discordgo.Session{}
 	message := discordgo.MessageCreate{
-		Message: &discordgo.Message{ChannelID: "channelid", Author: &discordgo.User{ID: "userid"}},
+		Message: &discordgo.Message{ChannelID: "channelid", Author: &discordgo.User{ID: "xenon"}},
 	}
 
 	return session, message
