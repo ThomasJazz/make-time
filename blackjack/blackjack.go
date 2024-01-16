@@ -16,7 +16,6 @@ import (
 )
 
 var (
-	activeGames   map[string]GameState
 	mtx           sync.Mutex
 	buildResponse = make(chan string, 1)
 	sendAndClose  = make(chan struct{})
@@ -289,7 +288,9 @@ func dealToDealer(game *GameState, visible bool) {
 
 func saveGameAsJson(game GameState) error {
 	fmt.Printf("Attempting to save game for ID: %s\n", game.PlayerId)
+	mtx.Lock()
 	jsonData, err := json.Marshal(game)
+	mtx.Unlock()
 	if err != nil {
 		fmt.Println("Failed to save game", err)
 		return err
@@ -306,7 +307,9 @@ func saveGameAsJson(game GameState) error {
 
 func loadGameJson(playerId string) (*GameState, error) {
 	fmt.Printf("Attempting to load game for ID: %s\n", playerId)
+	mtx.Lock()
 	jsonData, err := os.ReadFile(getFilePath(playerId))
+	mtx.Unlock()
 	if err != nil {
 		fmt.Println("Failed to load game", err)
 		return nil, err
@@ -331,6 +334,7 @@ func endGame(game GameState) int {
 }
 
 func hasActiveGame(playerId string) bool {
+	fmt.Printf("Checking for active game for ID: %s\n", playerId)
 	if _, err := os.Stat(getFilePath(playerId)); err == nil {
 		return true
 	} else {
