@@ -16,21 +16,17 @@ import (
 )
 
 var (
-	mtx           sync.Mutex
-	buildResponse = make(chan string, 1)
-	sendAndClose  = make(chan struct{})
+	mtx sync.Mutex
 )
 
-const dumpPath = "blackjack/data/[pid].json"
+const dumpPath = "data/[pid].json"
 
-func validateArgs(hasActiveGame bool, args []string) bool {
+func validateArgs(hasActiveGame bool, args []string) (bool, string) {
 	switch numArgs := len(args); {
 	case numArgs > 3:
-		buildResponse <- "Too many of arguments provided"
-		return false
+		return false, "Too many of arguments provided\n"
 	case numArgs == 1:
-		buildResponse <- "usage: !blackjack [action]"
-		return false
+		return false, "usage: !blackjack [action]\n"
 	}
 
 	// This will make sure "!blackhack hit stand" would fail
@@ -39,55 +35,48 @@ func validateArgs(hasActiveGame bool, args []string) bool {
 	for i := 1; i < len(args); i++ {
 		switch val := PlayOption(args[i]); {
 		case !isValidPlayOption(string(val)):
-			buildResponse <- "Unexpected argument: " + args[i]
-			return false
+			return false, "Unexpected argument: " + args[i]
 		case val == Bet:
 			if hasActiveGame {
-				buildResponse <- "Betting not allowed after the start of the round"
-				return false
+				return false, "Betting not allowed after the start of the round\n"
 			}
 			if i == len(args)-1 {
-				buildResponse <- "Invalid syntax. Please use: !blackjack bet [amount]"
-				return false
+				return false, "Invalid syntax. Please use: !blackjack bet [amount]\n"
 			}
 			betAmount, err := strconv.Atoi(args[i+1])
 			if err != nil {
-				buildResponse <- "Bet amount must be integer value"
-				return false
+				return false, "Bet amount must be integer value\n"
 			}
-			if betAmount < 1 {
-				buildResponse <- "Bet must be > 0"
-				return false
+			if betAmount < 1 || betAmount > 1000000000 {
+				return false, "Bet must be > 0\n && < 1000000000"
 			}
 			i++ // Increment here so we don't check it on next iteration
 		case val == Hit || val == Stand:
 			if !hasActiveGame {
-				buildResponse <- "No active game found. Please use: !blackjack bet [amount]"
-				return false
+				return false, "No active game found. Please use: !blackjack bet [amount]"
 			}
 			if actions > 0 {
-				buildResponse <- "Error. Cannot perform multiple actions"
-				return false
+				return false, "Error. Cannot perform multiple actions"
 			}
 			actions++
 			continue
 		}
 	}
 
-	return true
+	return true, ""
 }
 
 func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 	args := util.ParseLine(s, m)
-	go buildResponseMessage(s, m)
 
 	hasActive := hasActiveGame(m.Author.ID)
-	if !validateArgs(hasActive, args) {
-		sendAndClose <- struct{}{}
+	if success, errorMsg := validateArgs(hasActive, args); !success {
+		s.ChannelMessageSend(m.ChannelID, errorMsg)
 		return
 	}
 
 	game := LoadOrCreateGameState(m.Author.ID)
+	var responseBuilder strings.Builder
 
 	// Process args and apply them to the existing game
 	for i := 1; i < len(args); i++ {
@@ -106,38 +95,44 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 			game.Status, err = PlayTurn(args[i], &game)
 			if err != nil {
-				buildResponse <- "Error occurred while performing action"
+				responseBuilder.WriteString("Error occurred while performing action")
 				fmt.Println("Error occurred while performing action: ", err)
-				sendAndClose <- struct{}{}
 				return
 			}
 		}
 	}
+	// Check for bust
+	if getHandSum(game.PlayerHand, true) > 21 {
+		responseBuilder.WriteString("Player BUST!\n")
+	} else if getHandSum(game.DealerHand, true) > 21 {
+		responseBuilder.WriteString("Dealer BUST\n")
+	}
 
-	buildResponse <- "Game status: " + string(game.Status) + "\n"
-	buildResponse <- "Pot value: " + strconv.Itoa(game.Pot) + " shmeckles\n"
+	responseBuilder.WriteString("Game status: " + string(game.Status) + "\n")
+	responseBuilder.WriteString("Pot value: " + strconv.Itoa(game.Pot) + " shmeckles\n")
 
 	// Check if game is completed
 	if game.Status != InProgress {
 		winnings := endGame(game)
 
-		buildResponse <- (getPlayerTableView(game, true) + "\n")
+		responseBuilder.WriteString(getPlayerTableView(game, true) + "\n")
 
 		if game.Status == PlayerWin {
-			buildResponse <- ("You won " + strconv.Itoa(winnings) + " shmeckles!\n")
+			responseBuilder.WriteString("You won " + strconv.Itoa(winnings) + " shmeckles!\n")
 			// todo: add winnings to player balance in DB
 		} else if game.Status == DealerWin {
-			buildResponse <- ("You lost " + strconv.Itoa(game.Pot) + " shmeckles!\n")
+			responseBuilder.WriteString("You lost " + strconv.Itoa(game.Pot) + " shmeckles!\n")
 		} else if game.Status == Draw {
-			buildResponse <- ("Draw. Your bet will be returned\n")
+			responseBuilder.WriteString("Draw. Your bet will be returned\n")
 		}
 	} else {
 		saveGameAsJson(game)
-		buildResponse <- (getPlayerTableView(game, false) + "\nuse '!blackjack hit' for another card or '!blackjack stand' if you're " +
+		responseBuilder.WriteString(getPlayerTableView(game, false) + "\nuse '!blackjack hit' for another card or '!blackjack stand' if you're " +
 			"happy with your cards")
 	}
 
-	sendAndClose <- struct{}{}
+	fmt.Println(responseBuilder.String())
+	//s.ChannelMessageSend(m.ChannelID, responseBuilder.String())
 }
 
 func PlayTurn(actionStr string, game *GameState) (Status, error) {
@@ -161,12 +156,6 @@ func checkHands(playerHand []Card, dealerHand []Card, action PlayOption) Status 
 	// Determine status to return
 	dealerSum := getHandSum(dealerHand, true)
 	playerSum := getHandSum(playerHand, true)
-
-	if playerSum > 21 {
-		buildResponse <- "Player BUST!\n"
-	} else if dealerSum > 21 {
-		buildResponse <- "Dealer BUST\n"
-	}
 
 	if playerSum > 21 || (action == Stand && dealerSum <= 21 && playerSum < dealerSum) {
 		return DealerWin
@@ -404,19 +393,4 @@ func isValidPlayOption(option string) bool {
 		return true
 	}
 	return false
-}
-
-func buildResponseMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
-	var fullResponse strings.Builder
-
-	for loop := true; loop; {
-		select {
-		case val := <-buildResponse:
-			fullResponse.WriteString(val)
-		case <-sendAndClose:
-			fmt.Println(fullResponse.String())
-			s.ChannelMessageSend(m.ChannelID, fullResponse.String())
-			loop = false
-		}
-	}
 }

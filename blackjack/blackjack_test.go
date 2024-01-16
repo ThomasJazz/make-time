@@ -71,7 +71,7 @@ func TestArgValidator(t *testing.T) {
 		t.Fail()
 	}
 
-	actual := validateArgs(false, args)
+	actual, _ := validateArgs(false, args)
 
 	if expected != actual {
 		t.Fail()
