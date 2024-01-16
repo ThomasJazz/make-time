@@ -16,6 +16,7 @@ type GameState struct {
 	DealerHand []Card
 	PlayerHand []Card
 	Pot        int
+	Status     Status
 }
 
 type Result string

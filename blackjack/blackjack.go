@@ -46,9 +46,13 @@ func validateArgs(hasActiveGame bool, args []string) bool {
 				buildResponse <- "Invalid syntax. Please use: !blackjack bet [amount]"
 				return false
 			}
-			if _, err := strconv.Atoi(args[i+1]); err != nil {
+			betAmount, err := strconv.Atoi(args[i+1])
+			if err != nil {
 				buildResponse <- "Bet amount must be integer value"
 				return false
+			}
+			if betAmount < 1 {
+				buildResponse <- "Bet must be > 0"
 			}
 			i++ // Increment here so we don't check it on next iteration
 		case val == Hit || val == Stand:
@@ -80,8 +84,6 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	game := LoadOrCreateGameState(m.Author.ID)
 
-	var status Status = InProgress
-
 	// Process args and apply them to the existing game
 	for i := 1; i < len(args); i++ {
 		fmt.Printf("Player action: %s\n", args[i])
@@ -97,7 +99,7 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 		case Hit, Stand:
 			var err error
 
-			status, err = PlayTurn(args[i], &game)
+			game.Status, err = PlayTurn(args[i], &game)
 			if err != nil {
 				buildResponse <- "Error occurred while performing action"
 				fmt.Println("Error occurred while performing action: ", err)
@@ -107,21 +109,21 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}
 
-	buildResponse <- "Game status: " + string(status) + "\n"
+	buildResponse <- "Game status: " + string(game.Status) + "\n"
 	buildResponse <- "Pot value: " + strconv.Itoa(game.Pot) + " shmeckles\n"
 
 	// Check if game is completed
-	if status != InProgress {
+	if game.Status != InProgress {
 		pot := endGame(game)
 
 		buildResponse <- (getPlayerTableView(game, true) + "\n")
 
-		if status == PlayerWin {
+		if game.Status == PlayerWin {
 			buildResponse <- ("You won " + strconv.Itoa(pot) + " shmeckles!\n")
 			// todo: add winnings to player balance in DB
-		} else if status == DealerWin {
+		} else if game.Status == DealerWin {
 			buildResponse <- ("You lost " + strconv.Itoa(pot) + " shmeckles!\n")
-		} else if status == Draw {
+		} else if game.Status == Draw {
 			buildResponse <- ("Draw. Your bet will be returned\n")
 		}
 	} else {
@@ -147,9 +149,13 @@ func PlayTurn(actionStr string, game *GameState) (Status, error) {
 		return InProgress, errors.New("invalid action")
 	}
 
+	return checkHands(game.PlayerHand, game.DealerHand, action), nil
+}
+
+func checkHands(playerHand []Card, dealerHand []Card, action PlayOption) Status {
 	// Determine status to return
-	dealerSum := getHandSum(game.DealerHand, true)
-	playerSum := getHandSum(game.PlayerHand, true)
+	dealerSum := getHandSum(dealerHand, true)
+	playerSum := getHandSum(playerHand, true)
 
 	if playerSum > 21 {
 		buildResponse <- "Player BUST!\n"
@@ -158,16 +164,16 @@ func PlayTurn(actionStr string, game *GameState) (Status, error) {
 	}
 
 	if playerSum > 21 || (action == Stand && dealerSum <= 21 && playerSum < dealerSum) {
-		return DealerWin, nil
+		return DealerWin
 	} else if action == Stand && playerSum == dealerSum {
-		return Draw, nil
-	} else if (len(game.PlayerHand) == 2 && playerSum == 21) ||
+		return Draw
+	} else if (len(playerHand) == 2 && playerSum == 21) ||
 		dealerSum > 21 ||
 		(action == Stand && playerSum > dealerSum) { // End of round and dealers cards are lower
-		return PlayerWin, nil
+		return PlayerWin
 	}
 
-	return InProgress, nil
+	return InProgress
 }
 
 func LoadOrCreateGameState(playerId string) GameState {
@@ -184,6 +190,8 @@ func LoadOrCreateGameState(playerId string) GameState {
 	} else {
 		game = StartGame(playerId)
 	}
+
+	game.Status = checkHands(game.PlayerHand, game.DealerHand, Hit)
 
 	return game
 }
@@ -235,7 +243,7 @@ func shuffleDeck(deck []Card) {
 func doDealerAction(game *GameState) bool {
 	handSum := getHandSum(game.DealerHand, true)
 
-	if handSum < 17 {
+	if handSum < 17 || handSum < getHandSum(game.PlayerHand, true) {
 		dealToDealer(game, true)
 		return true
 	}
