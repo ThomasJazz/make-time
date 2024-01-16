@@ -298,6 +298,7 @@ func saveGameAsJson(game GameState) error {
 
 	err = os.WriteFile(filepath, jsonData, 0777)
 	if err != nil {
+		fmt.Println("Failed to save game", err)
 		return err
 	}
 
