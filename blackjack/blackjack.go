@@ -288,6 +288,7 @@ func dealToDealer(game *GameState, visible bool) {
 }
 
 func saveGameAsJson(game GameState) error {
+	fmt.Printf("Attempting to save game for ID: %s\n", game.PlayerId)
 	jsonData, err := json.Marshal(game)
 	if err != nil {
 		return err
@@ -303,6 +304,7 @@ func saveGameAsJson(game GameState) error {
 }
 
 func loadGameJson(playerId string) (*GameState, error) {
+	fmt.Printf("Attempting to load game for ID: %s\n", playerId)
 	jsonData, err := os.ReadFile(getFilePath(playerId))
 	if err != nil {
 		return nil, err
