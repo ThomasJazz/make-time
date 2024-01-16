@@ -19,7 +19,7 @@ var (
 	mtx sync.Mutex
 )
 
-const dumpPath = "data/[pid].json"
+const dumpPath = "blackjack/data/[pid].json"
 
 func validateArgs(hasActiveGame bool, args []string) (bool, string) {
 	switch numArgs := len(args); {
