@@ -100,6 +100,8 @@ func HandleBlackJack(s *discordgo.Session, m *discordgo.MessageCreate) {
 			status, err = PlayTurn(args[i], &game)
 			if err != nil {
 				buildResponse <- "Error occurred while performing action"
+				fmt.Println("Error occurred while performing action: ", err)
+				sendAndClose <- struct{}{}
 				return
 			}
 		}
