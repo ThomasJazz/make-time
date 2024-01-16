@@ -291,6 +291,7 @@ func saveGameAsJson(game GameState) error {
 	fmt.Printf("Attempting to save game for ID: %s\n", game.PlayerId)
 	jsonData, err := json.Marshal(game)
 	if err != nil {
+		fmt.Println("Failed to save game", err)
 		return err
 	}
 	filepath := getFilePath(game.PlayerId)
@@ -307,6 +308,7 @@ func loadGameJson(playerId string) (*GameState, error) {
 	fmt.Printf("Attempting to load game for ID: %s\n", playerId)
 	jsonData, err := os.ReadFile(getFilePath(playerId))
 	if err != nil {
+		fmt.Println("Failed to load game", err)
 		return nil, err
 	}
 
