@@ -48,7 +48,7 @@ func validateArgs(hasActiveGame bool, args []string) (bool, string) {
 				return false, "Bet amount must be integer value\n"
 			}
 			if betAmount < 1 || betAmount > 1000000000 {
-				return false, "Bet must be > 0\n && < 1000000000"
+				return false, "Bet must be > 0 && < 1000000000"
 			}
 			i++ // Increment here so we don't check it on next iteration
 		case val == Hit || val == Stand:
