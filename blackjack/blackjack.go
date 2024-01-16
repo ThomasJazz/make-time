@@ -42,6 +42,10 @@ func validateArgs(hasActiveGame bool, args []string) bool {
 			buildResponse <- "Unexpected argument: " + args[i]
 			return false
 		case val == Bet:
+			if hasActiveGame {
+				buildResponse <- "Betting not allowed after the start of the round"
+				return false
+			}
 			if i == len(args)-1 {
 				buildResponse <- "Invalid syntax. Please use: !blackjack bet [amount]"
 				return false
