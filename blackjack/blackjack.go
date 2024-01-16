@@ -21,7 +21,7 @@ var (
 	sendAndClose  = make(chan struct{})
 )
 
-const dumpPath = "data/[pid].json"
+const dumpPath = "blackjack/data/[pid].json"
 
 func validateArgs(hasActiveGame bool, args []string) bool {
 	switch numArgs := len(args); {
