@@ -53,6 +53,7 @@ func validateArgs(hasActiveGame bool, args []string) bool {
 			}
 			if betAmount < 1 {
 				buildResponse <- "Bet must be > 0"
+				return false
 			}
 			i++ // Increment here so we don't check it on next iteration
 		case val == Hit || val == Stand:
